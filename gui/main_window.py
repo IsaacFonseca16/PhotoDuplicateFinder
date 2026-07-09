@@ -12,10 +12,9 @@ from PySide6.QtCore import Qt
 
 from gui.styles import APP_STYLE
 from gui.components.sidebar import Sidebar
+from gui.components.toolbar import Toolbar
 from gui.components.duplicate_card import DuplicateCard
-
-from services.scanner import scan_folder
-from services.similar_image_detector import find_similar_images
+from gui.workers.scan_worker import ScanWorker
 
 
 class MainWindow(QMainWindow):
@@ -23,35 +22,44 @@ class MainWindow(QMainWindow):
         super().__init__()
 
         self.setWindowTitle("Photo Duplicate Finder")
-        self.resize(1100, 720)
+        self.resize(1200, 760)
 
         self.selected_folder = None
-        self.setStyleSheet(APP_STYLE)
-
-        self.build_ui()
         self.duplicate_cards = []
-        self.sidebar.delete_button.clicked.connect(self.delete_selected)
+        self.worker = None
+
+        self.setStyleSheet(APP_STYLE)
+        self.build_ui()
 
     def build_ui(self):
         main = QWidget()
-        main_layout = QHBoxLayout(main)
-        main_layout.setContentsMargins(20, 20, 20, 20)
-        main_layout.setSpacing(18)
+        root_layout = QVBoxLayout(main)
+        root_layout.setContentsMargins(18, 18, 18, 18)
+        root_layout.setSpacing(16)
+
+        self.toolbar = Toolbar()
+
+        body_layout = QHBoxLayout()
+        body_layout.setSpacing(16)
 
         self.sidebar = Sidebar()
         content = self.create_content()
 
         self.sidebar.select_button.clicked.connect(self.select_folder)
         self.sidebar.scan_button.clicked.connect(self.scan_folder)
+        self.sidebar.delete_button.clicked.connect(self.delete_selected)
 
-        main_layout.addWidget(self.sidebar, 1)
-        main_layout.addWidget(content, 4)
+        body_layout.addWidget(self.sidebar, 1)
+        body_layout.addWidget(content, 4)
+
+        root_layout.addWidget(self.toolbar)
+        root_layout.addLayout(body_layout)
 
         self.setCentralWidget(main)
 
     def create_content(self):
         content = QFrame()
-        content.setObjectName("card")
+        content.setObjectName("panel")
 
         layout = QVBoxLayout(content)
         layout.setContentsMargins(22, 22, 22, 22)
@@ -70,6 +78,7 @@ class MainWindow(QMainWindow):
         self.results_container = QWidget()
         self.results_layout = QVBoxLayout(self.results_container)
         self.results_layout.setAlignment(Qt.AlignTop)
+        self.results_layout.setSpacing(16)
 
         self.empty_label = QLabel(
             "No hay resultados todavía.\nSelecciona una carpeta y presiona Escanear."
@@ -99,11 +108,19 @@ class MainWindow(QMainWindow):
         if not self.selected_folder:
             return
 
-        files = scan_folder(self.selected_folder)
-        groups = find_similar_images(files, max_difference=5)
+        self.sidebar.scan_button.setEnabled(False)
+        self.sidebar.scan_button.setText("Escaneando...")
+        self.sidebar.progress.setValue(0)
 
         self.clear_results()
 
+        self.worker = ScanWorker(self.selected_folder)
+        self.worker.progress.connect(self.sidebar.progress.setValue)
+        self.worker.finished.connect(self.on_scan_finished)
+        self.worker.error.connect(self.on_scan_error)
+        self.worker.start()
+
+    def on_scan_finished(self, files, groups):
         image_count = len([f for f in files if f.file_type == "Imagen"])
         video_count = len([f for f in files if f.file_type == "Video"])
 
@@ -112,16 +129,24 @@ class MainWindow(QMainWindow):
         self.sidebar.group_count.setText(f"🧩 Grupos: {len(groups)}")
         self.sidebar.progress.setValue(100)
 
+        self.sidebar.scan_button.setEnabled(True)
+        self.sidebar.scan_button.setText("Escanear")
+
         if not groups:
             self.results_layout.addWidget(self.empty_label)
             return
 
         for index, group in enumerate(groups, start=1):
             card = DuplicateCard(index, group)
-
             self.duplicate_cards.append(card)
-
             self.results_layout.addWidget(card)
+
+    def on_scan_error(self, message):
+        self.sidebar.scan_button.setEnabled(True)
+        self.sidebar.scan_button.setText("Escanear")
+        self.sidebar.progress.setValue(0)
+
+        print("Error durante el escaneo:", message)
 
     def clear_results(self):
         while self.results_layout.count():
@@ -130,9 +155,10 @@ class MainWindow(QMainWindow):
 
             if widget:
                 widget.setParent(None)
-            self.duplicate_cards.clear()
-    def delete_selected(self):
 
+        self.duplicate_cards.clear()
+
+    def delete_selected(self):
         selected_files = []
 
         for card in self.duplicate_cards:
