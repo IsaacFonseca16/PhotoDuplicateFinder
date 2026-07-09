@@ -15,6 +15,8 @@ from gui.components.sidebar import Sidebar
 from gui.components.toolbar import Toolbar
 from gui.components.duplicate_card import DuplicateCard
 from gui.workers.scan_worker import ScanWorker
+from PySide6.QtWidgets import QMessageBox
+from services.delete_service import move_files_to_trash
 
 
 class MainWindow(QMainWindow):
@@ -164,7 +166,42 @@ class MainWindow(QMainWindow):
         for card in self.duplicate_cards:
             selected_files.extend(card.get_selected_files())
 
-        print("\nArchivos seleccionados:\n")
+        if not selected_files:
+            QMessageBox.information(
+                self,
+                "Sin selección",
+                "No seleccionaste ningún archivo para eliminar."
+            )
+            return
 
-        for file in selected_files:
-            print(file.path)
+        total_size = sum(file.size for file in selected_files)
+
+        confirm = QMessageBox.question(
+            self,
+            "Confirmar eliminación",
+            f"Se moverán {len(selected_files)} archivo(s) a la Papelera.\n\n"
+            f"Espacio aproximado: {round(total_size, 2)} MB\n\n"
+            "¿Deseas continuar?",
+            QMessageBox.Yes | QMessageBox.No
+        )
+
+        if confirm != QMessageBox.Yes:
+            return
+
+        try:
+            move_files_to_trash(selected_files)
+
+            QMessageBox.information(
+                self,
+                "Archivos movidos",
+                "Los archivos seleccionados fueron enviados a la Papelera."
+            )
+
+            self.scan_folder()
+
+        except Exception as error:
+            QMessageBox.critical(
+                self,
+                "Error",
+                f"No se pudieron eliminar los archivos:\n{error}"
+            )
