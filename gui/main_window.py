@@ -3,7 +3,9 @@ from PySide6.QtWidgets import (
     QHBoxLayout, QFrame, QProgressBar, QScrollArea, QFileDialog
 )
 from PySide6.QtCore import Qt
-
+from gui.components.duplicate_card import DuplicateCard
+from services.scanner import scan_folder
+from services.similar_image_detector import find_similar_images
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -111,6 +113,7 @@ class MainWindow(QMainWindow):
 
         self.scan_button = QPushButton("Escanear")
         self.scan_button.setObjectName("secondaryButton")
+        self.scan_button.clicked.connect(self.scan_folder)
 
         self.progress = QProgressBar()
         self.progress.setValue(0)
@@ -184,3 +187,28 @@ class MainWindow(QMainWindow):
         if folder:
             self.selected_folder = folder
             self.folder_label.setText(folder)
+
+    def scan_folder(self):
+        if not self.selected_folder:
+            return
+
+        files = scan_folder(self.selected_folder)
+        groups = find_similar_images(files, max_difference=5)
+
+        while self.results_layout.count():
+            item = self.results_layout.takeAt(0)
+            widget = item.widget()
+            if widget:
+                widget.deleteLater()
+
+        image_count = len([f for f in files if f.file_type == "Imagen"])
+        video_count = len([f for f in files if f.file_type == "Video"])
+
+        self.image_count.setText(f"📷 Imágenes: {image_count}")
+        self.video_count.setText(f"🎥 Videos: {video_count}")
+        self.group_count.setText(f"🧩 Grupos: {len(groups)}")
+        self.progress.setValue(100)
+
+        for index, group in enumerate(groups, start=1):
+            card = DuplicateCard(index, group)
+            self.results_layout.addWidget(card)
