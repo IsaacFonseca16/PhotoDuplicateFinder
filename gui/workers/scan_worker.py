@@ -2,7 +2,7 @@ from PySide6.QtCore import QThread, Signal
 
 from services.scanner import scan_folder
 from services.similar_image_detector import find_similar_images
-
+from services.video_duplicate_detector import find_duplicate_videos
 
 class ScanWorker(QThread):
     finished = Signal(list, list)
@@ -21,7 +21,12 @@ class ScanWorker(QThread):
 
             self.progress.emit(70)
 
-            groups = find_similar_images(files, max_difference=5)
+            image_groups = find_similar_images(files, max_difference=5)
+            video_groups_dict = find_duplicate_videos(files)
+
+            video_groups = list(video_groups_dict.values())
+
+            groups = image_groups + video_groups
 
             self.progress.emit(100)
 

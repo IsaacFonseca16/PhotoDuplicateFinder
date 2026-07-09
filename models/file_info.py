@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 
+
 @dataclass
 class FileInfo:
     name: str
@@ -10,3 +11,5 @@ class FileInfo:
     width: int | None = None
     height: int | None = None
     phash: object | None = None
+    duration: float | None = None
+    fps: float | None = None

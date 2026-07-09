@@ -1,6 +1,6 @@
 from pathlib import Path
 from PIL import Image
-
+from services.video_service import get_video_metadata
 from services.hashing import calculate_sha256
 from models.file_info import FileInfo
 from services.image_hashing import calculate_phash
@@ -65,10 +65,14 @@ def scan_folder(folder_path):
             width = None
             height = None
             phash = None
+            duration = None
+            fps = None
 
             if file_type == "Imagen":
                 width, height = get_image_dimensions(file)
             phash = calculate_phash(file)
+            if file_type == "Video":
+                width, height, duration, fps = get_video_metadata(file)
 
             files.append(
                 FileInfo(
@@ -80,6 +84,8 @@ def scan_folder(folder_path):
                     width=width,
                     height=height,
                     phash=phash,
+                    duration=duration,
+                    fps=fps,
                 )
             )
 

@@ -1,10 +1,7 @@
-from PySide6.QtWidgets import (
-    QFrame,
-    QVBoxLayout,
-    QLabel,
-    QCheckBox,
-)
-from PySide6.QtGui import QPixmap
+import cv2
+
+from PySide6.QtWidgets import QFrame, QVBoxLayout, QLabel, QCheckBox
+from PySide6.QtGui import QPixmap, QImage
 from PySide6.QtCore import Qt, Signal
 
 
@@ -60,9 +57,12 @@ class ThumbnailWidget(QFrame):
             color: #64748b;
         """)
 
-        pixmap = QPixmap(self.file_info.path)
+        if self.file_info.file_type == "Video":
+            pixmap = self.get_video_thumbnail()
+        else:
+            pixmap = QPixmap(self.file_info.path)
 
-        if not pixmap.isNull():
+        if pixmap and not pixmap.isNull():
             pixmap = pixmap.scaled(
                 190,
                 135,
@@ -74,21 +74,56 @@ class ThumbnailWidget(QFrame):
             image_label.setText("Sin vista")
 
         name = self.shorten_name(self.file_info.name)
+
         name_label = QLabel(name)
         name_label.setToolTip(self.file_info.name)
         name_label.setWordWrap(True)
         name_label.setStyleSheet("font-size: 13px; font-weight: bold;")
 
-        details_label = QLabel(
+        details_text = (
             f"{self.file_info.width} × {self.file_info.height}\n"
             f"{self.file_info.size} MB"
         )
+
+        if self.file_info.file_type == "Video" and self.file_info.duration:
+            minutes = int(self.file_info.duration // 60)
+            seconds = int(self.file_info.duration % 60)
+            details_text += f"\n🎥 {minutes:02d}:{seconds:02d}"
+
+        details_label = QLabel(details_text)
         details_label.setStyleSheet("color: #94a3b8; font-size: 12px;")
 
         layout.addWidget(self.checkbox)
         layout.addWidget(image_label)
         layout.addWidget(name_label)
         layout.addWidget(details_label)
+
+    def get_video_thumbnail(self):
+        video = cv2.VideoCapture(self.file_info.path)
+
+        if not video.isOpened():
+            return None
+
+        success, frame = video.read()
+        video.release()
+
+        if not success:
+            return None
+
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
+        height, width, channels = frame.shape
+        bytes_per_line = channels * width
+
+        image = QImage(
+            frame.data,
+            width,
+            height,
+            bytes_per_line,
+            QImage.Format_RGB888,
+        )
+
+        return QPixmap.fromImage(image)
 
     def shorten_name(self, name, max_length=26):
         if len(name) <= max_length:
