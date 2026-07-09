@@ -77,3 +77,6 @@ class ThumbnailWidget(QFrame):
         layout.addWidget(name_label)
         layout.addWidget(details_label)
         layout.addWidget(self.checkbox)
+        
+    def is_selected_for_delete(self):
+        return self.checkbox.isChecked()

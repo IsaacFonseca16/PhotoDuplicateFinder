@@ -29,6 +29,8 @@ class MainWindow(QMainWindow):
         self.setStyleSheet(APP_STYLE)
 
         self.build_ui()
+        self.duplicate_cards = []
+        self.sidebar.delete_button.clicked.connect(self.delete_selected)
 
     def build_ui(self):
         main = QWidget()
@@ -116,6 +118,9 @@ class MainWindow(QMainWindow):
 
         for index, group in enumerate(groups, start=1):
             card = DuplicateCard(index, group)
+
+            self.duplicate_cards.append(card)
+
             self.results_layout.addWidget(card)
 
     def clear_results(self):
@@ -125,3 +130,15 @@ class MainWindow(QMainWindow):
 
             if widget:
                 widget.setParent(None)
+            self.duplicate_cards.clear()
+    def delete_selected(self):
+
+        selected_files = []
+
+        for card in self.duplicate_cards:
+            selected_files.extend(card.get_selected_files())
+
+        print("\nArchivos seleccionados:\n")
+
+        for file in selected_files:
+            print(file.path)
