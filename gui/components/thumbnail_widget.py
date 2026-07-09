@@ -2,10 +2,11 @@ from PySide6.QtWidgets import (
     QFrame, QVBoxLayout, QLabel, QCheckBox
 )
 from PySide6.QtGui import QPixmap
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal
 
 
 class ThumbnailWidget(QFrame):
+    double_clicked = Signal(object)
     def __init__(self, file_info):
         super().__init__()
 
@@ -80,3 +81,7 @@ class ThumbnailWidget(QFrame):
         
     def is_selected_for_delete(self):
         return self.checkbox.isChecked()
+    
+    def mouseDoubleClickEvent(self, event):
+        self.double_clicked.emit(self.file_info)
+        super().mouseDoubleClickEvent(event)

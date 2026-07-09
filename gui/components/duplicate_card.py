@@ -3,6 +3,7 @@ from PySide6.QtWidgets import (
 )
 
 from gui.components.thumbnail_widget import ThumbnailWidget
+from gui.dialogs.image_preview_dialog import ImagePreviewDialog
 
 
 class DuplicateCard(QFrame):
@@ -49,6 +50,7 @@ class DuplicateCard(QFrame):
 
         for file in self.files:
             thumbnail = ThumbnailWidget(file)
+            thumbnail.double_clicked.connect(self.open_preview)
             self.thumbnails.append(thumbnail)
             thumbnails_row.addWidget(thumbnail)
 
@@ -57,9 +59,13 @@ class DuplicateCard(QFrame):
 
     def get_selected_files(self):
         selected = []
+        
 
         for thumbnail in self.thumbnails:
             if thumbnail.is_selected_for_delete():
                 selected.append(thumbnail.file_info)
 
         return selected
+    def open_preview(self, file_info):
+        dialog = ImagePreviewDialog(file_info)
+        dialog.exec()
