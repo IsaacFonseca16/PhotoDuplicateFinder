@@ -30,6 +30,8 @@ class MainWindow(QMainWindow):
         self.duplicate_cards = []
         self.worker = None
 
+        self.setAcceptDrops(True)
+
         self.setStyleSheet(APP_STYLE)
         self.build_ui()
 
@@ -40,6 +42,7 @@ class MainWindow(QMainWindow):
         root_layout.setSpacing(16)
 
         self.toolbar = Toolbar()
+        self.toolbar.search_input.textChanged.connect(self.filter_results)
 
         body_layout = QHBoxLayout()
         body_layout.setSpacing(16)
@@ -105,6 +108,7 @@ class MainWindow(QMainWindow):
         if folder:
             self.selected_folder = folder
             self.sidebar.folder_label.setText(folder)
+            self.sidebar.status_label.setText("Estado: carpeta seleccionada")
 
     def scan_folder(self):
         if not self.selected_folder:
@@ -112,6 +116,7 @@ class MainWindow(QMainWindow):
 
         self.sidebar.scan_button.setEnabled(False)
         self.sidebar.scan_button.setText("Escaneando...")
+        self.sidebar.status_label.setText("Estado: escaneando archivos...")
         self.sidebar.progress.setValue(0)
 
         self.clear_results()
@@ -133,6 +138,7 @@ class MainWindow(QMainWindow):
 
         self.sidebar.scan_button.setEnabled(True)
         self.sidebar.scan_button.setText("Escanear")
+        self.sidebar.status_label.setText("Estado: escaneo completado")
 
         if not groups:
             self.results_layout.addWidget(self.empty_label)
@@ -140,14 +146,17 @@ class MainWindow(QMainWindow):
 
         for index, group in enumerate(groups, start=1):
             card = DuplicateCard(index, group)
+            card.selection_changed.connect(self.update_recoverable_space)
+
             self.duplicate_cards.append(card)
             self.results_layout.addWidget(card)
-
+           
     def on_scan_error(self, message):
         self.sidebar.scan_button.setEnabled(True)
         self.sidebar.scan_button.setText("Escanear")
         self.sidebar.progress.setValue(0)
 
+        self.sidebar.status_label.setText("Estado: error durante el escaneo")
         print("Error durante el escaneo:", message)
 
     def clear_results(self):
@@ -173,8 +182,9 @@ class MainWindow(QMainWindow):
                 "No seleccionaste ningún archivo para eliminar."
             )
             return
-
+        
         total_size = sum(file.size for file in selected_files)
+        self.sidebar.space_label.setText(f"💾 Recuperable: {round(total_size, 2)} MB")
 
         confirm = QMessageBox.question(
             self,
@@ -205,3 +215,37 @@ class MainWindow(QMainWindow):
                 "Error",
                 f"No se pudieron eliminar los archivos:\n{error}"
             )
+    def dragEnterEvent(self, event):
+        if event.mimeData().hasUrls():
+            event.acceptProposedAction()
+
+    def dropEvent(self, event):
+        urls = event.mimeData().urls()
+
+        if not urls:
+            return
+
+        folder_path = urls[0].toLocalFile()
+
+        from pathlib import Path
+        path = Path(folder_path)
+
+        if path.is_dir():
+            self.selected_folder = str(path)
+            self.sidebar.folder_label.setText(str(path))
+            self.sidebar.status_label.setText("Estado: carpeta arrastrada correctamente")
+            self.scan_folder()
+        else:
+            self.sidebar.status_label.setText("Estado: arrastra una carpeta, no un archivo")
+
+    def filter_results(self, text):
+        for card in self.duplicate_cards:
+            card.setVisible(card.matches_search(text))
+    def update_recoverable_space(self):
+        selected_files = []
+
+        for card in self.duplicate_cards:
+            selected_files.extend(card.get_selected_files())
+
+        total_size = sum(file.size for file in selected_files)
+        self.sidebar.space_label.setText(f"💾 Recuperable: {round(total_size, 2)} MB")

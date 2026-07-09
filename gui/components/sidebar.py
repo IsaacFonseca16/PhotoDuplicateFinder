@@ -40,6 +40,8 @@ class Sidebar(QFrame):
 
         section_progress = QLabel("Progreso")
         section_progress.setStyleSheet("font-size: 16px; font-weight: bold;")
+        self.status_label = QLabel("Estado: listo")
+        self.status_label.setStyleSheet("color: #94a3b8; font-size: 12px;")
 
         self.progress = QProgressBar()
         self.progress.setValue(0)
@@ -62,6 +64,7 @@ class Sidebar(QFrame):
         layout.addSpacing(20)
         layout.addWidget(section_progress)
         layout.addWidget(self.progress)
+        layout.addWidget(self.status_label)
 
         layout.addStretch()
         layout.addWidget(self.delete_button)

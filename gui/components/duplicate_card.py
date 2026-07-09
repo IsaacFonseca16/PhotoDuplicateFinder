@@ -1,10 +1,14 @@
 from PySide6.QtWidgets import QFrame, QVBoxLayout, QHBoxLayout, QLabel
+from PySide6.QtCore import Signal
 
+from services.recommendation_service import get_recommended_file
 from gui.components.thumbnail_widget import ThumbnailWidget
 from gui.dialogs.image_preview_dialog import ImagePreviewDialog
 
 
 class DuplicateCard(QFrame):
+    selection_changed = Signal()
+
     def __init__(self, group_number, files):
         super().__init__()
 
@@ -58,9 +62,17 @@ class DuplicateCard(QFrame):
         thumbnails_row = QHBoxLayout()
         thumbnails_row.setSpacing(14)
 
+        recommended_file = get_recommended_file(self.files)
+
         for file in self.files:
             thumbnail = ThumbnailWidget(file)
             thumbnail.double_clicked.connect(self.open_preview)
+            thumbnail.selection_changed.connect(self.selection_changed)
+
+            if recommended_file and file.path == recommended_file.path:
+                thumbnail.set_recommended(True)
+            else:
+                thumbnail.set_checked_for_delete(True)
 
             self.thumbnails.append(thumbnail)
             thumbnails_row.addWidget(thumbnail)
@@ -80,3 +92,15 @@ class DuplicateCard(QFrame):
     def open_preview(self, file_info):
         dialog = ImagePreviewDialog(file_info)
         dialog.exec()
+
+    def matches_search(self, text):
+        text = text.lower().strip()
+
+        if not text:
+            return True
+
+        for file in self.files:
+            if text in file.name.lower():
+                return True
+
+        return False
